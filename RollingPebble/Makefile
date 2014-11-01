@@ -8,4 +8,4 @@ build:
 	pebble build
 
 install:
-	pebble install
+	pebble install --phone 172.26.3.33
