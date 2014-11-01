@@ -12,6 +12,22 @@
     "dummy": 0
   },
   "resources": {
-    "media": []
+    "media": [
+        {
+          "type": "png",
+          "name": "IMAGE_UP_ARROW",
+          "file": "img/arrow_up.png"
+      },
+      {
+        "type": "png",
+        "name": "IMAGE_DOWN_ARROW",
+        "file": "img/arrow_down.png"
+      },
+      {
+        "type": "png",
+        "name": "IMAGE_SQUARE",
+        "file": "img/square.png"
+      }
+      ]
   }
 }
