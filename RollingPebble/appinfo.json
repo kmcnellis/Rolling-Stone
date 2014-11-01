@@ -1,0 +1,17 @@
+{
+  "uuid": "a9df8db9-74ee-4f77-b2fa-929b678deab2",
+  "shortName": "RollingPebble",
+  "longName": "RollingPebble",
+  "companyName": "MakeAwesomeHappen",
+  "versionCode": 1,
+  "versionLabel": "1.0",
+  "watchapp": {
+    "watchface": false
+  },
+  "appKeys": {
+    "dummy": 0
+  },
+  "resources": {
+    "media": []
+  }
+}
