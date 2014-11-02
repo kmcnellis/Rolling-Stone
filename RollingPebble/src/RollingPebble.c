@@ -1,5 +1,9 @@
 #include <pebble.h>
+#define error_log true
 
+#define ACCEL_RATIO 1
+#define ACCEL_STEP_MS 50
+#define MESS_STEP_MS 250
 
 static Window *window;
 static GFont s_res_gothic_14;
@@ -19,6 +23,8 @@ static GBitmap* icon_top;
 static GBitmap* icon_bot;
 static GBitmap* icon_mid;
 
+static AppTimer *mess_timer;
+static AppTimer *accel_timer;
 
 static char buffer[40];
 
@@ -26,6 +32,7 @@ static bool local_robot_move = false;
 static bool local_mouse = false;
 static bool local_keyboare = false;
 static int  local_action =0;
+static bool local_enable =false;
 
 int x_co = 0, y_co=0, z_co=0;
 
@@ -52,59 +59,47 @@ enum Sync_Data {
 //Accelerometer
 
 void accel_data_handler(AccelData *data, uint32_t num_samples) {
-  // Process 10 events - every 1 second
     uint32_t a=0;
     int16_t num= 0;
+
     for (a =0; a<num_samples; a++){
         if (data[a].did_vibrate==false){
             num++;
-            x_co+=data[a].x;
+            x_co+=(data[a].x);
             x_co=x_co/2;
-            y_co+=data[a].y;
+            y_co+=(data[a].y);
             y_co=x_co/2;
-            z_co+=data[a].z;
+            z_co+=(data[a].z);
             z_co=z_co/2;
+            int x_=data[a].x, y_=data[a].y, z_=data[a].z;
+             if (error_log){ APP_LOG(APP_LOG_LEVEL_DEBUG, "RR X: %d Y: %d Z: %d",x_,y_,z_);}
+
         }
     }
+}
+static void accel_timer_callback(void *arg) {
+    AccelData accel = (AccelData) { .x = 0, .y = 0, .z = 0 };
 
-    //x_co=(int16_t) x_co/num;
-    //y_co=(int16_t) y_co/num;
-    //z_co=(int16_t) z_co/num;
-    // if(num > 0){
-    //     snprintf(buffer, sizeof(buffer), "x: %i\ny: %i\nz:%i", x_co,y_co,z_co);
-       //
-       //
-       //
-    //     DictionaryIterator *iter;
-    //     app_message_outbox_begin(&iter);
-    //     int value = 2040;
-    //     int key = 1;
-    //     int key2 = 0;
-    //     int val2= x_co;
-       //
-    //     APP_LOG(APP_LOG_LEVEL_DEBUG, "X: %d Y: %d", x_co, y_co);
-       //
-    //    dict_write_int(iter, Y_KEY, &y_co, sizeof(int), true);
-    //    dict_write_int(iter, Z_KEY, &z_co, sizeof(int), true);
-    //    dict_write_int(iter, ACTION_KEY, &local_action, sizeof(int), true);
-    //     app_message_outbox_send();
+    accel_service_peek(&accel);
 
-        // End:
-        // const uint32_t final_size = dict_write_end(&iter);
-        // message_buffer now contains the serialized information
+    uint32_t a=0;
+    int16_t num= 0;
 
 
+    if (accel.did_vibrate==false){
+        num++;
+        x_co+=(accel.x);
+        x_co=x_co/2;
+        y_co+=(accel.y);
+        y_co=x_co/2;
+        z_co+=(accel.z);
+        z_co=z_co/2;
+        int x_=accel.x, y_=accel.y, z_=accel.z;
+         if (error_log){ APP_LOG(APP_LOG_LEVEL_DEBUG, "RT X: %d Y: %d Z: %d",x_,y_,z_);}
 
-        // DictionaryIterator *iter;
-        // app_message_outbox_begin(&iter);
-        // int key=1, value=y_co;
-        // dict_write_int(iter, key, &value, sizeof(int), true);
-        // app_message_outbox_send();
+    }
 
-
-
-        //text_layer_set_text(text_layer, buffer);
-    //}
+  accel_timer = app_timer_register(ACCEL_STEP_MS, accel_timer_callback, NULL);
 }
 
 //Clicks
@@ -114,7 +109,7 @@ static void select_click_handler(ClickRecognizerRef recognizer, void *context) {
 
 }
 
-static void up_click_handler(ClickRecognizerRef recognizer, void *context) {
+static void mod_click_handler(ClickRecognizerRef recognizer, void *context) {
     text_layer_set_text(text_layer_info, "Up");
 }
 
@@ -124,7 +119,7 @@ static void down_click_handler(ClickRecognizerRef recognizer, void *context) {
 
 static void click_config_provider(void *context) {
     window_single_click_subscribe(BUTTON_ID_SELECT, select_click_handler);
-    window_single_click_subscribe(BUTTON_ID_UP, up_click_handler);
+    window_single_click_subscribe(BUTTON_ID_UP, mod_click_handler);
     window_single_click_subscribe(BUTTON_ID_DOWN, down_click_handler);
 }
 
@@ -135,42 +130,52 @@ void send_message(){
     snprintf(buffer, sizeof(buffer), "x: %i\ny: %i\nz:%i", x_co,y_co,z_co);
     DictionaryIterator *iter;
     app_message_outbox_begin(&iter);
-    int value = 2040;
-    int key = 1;
-    int key2 = 0;
-    int val2= x_co;
+    int x_=(x_co/ACCEL_RATIO);
+    int y_=(y_co/ACCEL_RATIO);
+    int z_=(z_co/ACCEL_RATIO);
 
-    APP_LOG(APP_LOG_LEVEL_DEBUG, "X: %d Y: %d Z: %d", x_co, y_co, z_co);
+    if(error_log){APP_LOG(APP_LOG_LEVEL_DEBUG, "X: %d Y: %d Z: %d", x_, y_, z_);}
 
-    dict_write_int(iter, X_KEY, &x_co, sizeof(int), true);
-    dict_write_int(iter, Y_KEY, &y_co, sizeof(int), true);
-    dict_write_int(iter, Z_KEY, &z_co, sizeof(int), true);
+    dict_write_int(iter, X_KEY, &x_, sizeof(int), true);
+    dict_write_int(iter, Y_KEY, &y_, sizeof(int), true);
+    dict_write_int(iter, Z_KEY, &z_, sizeof(int), true);
     dict_write_int(iter, ACTION_KEY, &local_action, sizeof(int), true);
     app_message_outbox_send();
     text_layer_set_text(text_layer, buffer);
 }
 
-void out_sent_handler(DictionaryIterator *sent, void *context) {
-    text_layer_set_text(text_layer_updated, "Updated!");
-    APP_LOG(APP_LOG_LEVEL_DEBUG, "out_sent_handler");
+static void message_timer_callback(void *arg) {
+    text_layer_set_text(text_layer_updated, "TIMER!");
+
+    mess_timer=NULL;
     send_message();
+}
 
-
-
+void out_sent_handler(DictionaryIterator *sent, void *context) {
+    // if(mess_timer!=NULL){
+    //     app_timer_cancel(mess_timer);
+    // }
+    // mess_timer = app_timer_register(MESS_STEP_MS, message_timer_callback, NULL);
+    text_layer_set_text(text_layer_updated, "Updated!"); if (error_log){APP_LOG(APP_LOG_LEVEL_DEBUG, "out_sent_handler");}
+    send_message();
  }
 
 
  void out_failed_handler(DictionaryIterator *failed, AppMessageResult reason, void *context) {
-     text_layer_set_text(text_layer_updated, "Failed :(");
-     APP_LOG(APP_LOG_LEVEL_DEBUG, "out_failed_handler");
+    // if(mess_timer!=NULL){
+    //     app_timer_cancel(mess_timer);
+    // }
+    text_layer_set_text(text_layer_updated, "Failed :(");
+    if (error_log){ APP_LOG(APP_LOG_LEVEL_DEBUG, "out_failed_handler");}
     send_message();
+
  }
 
 
 
  void in_received_handler(DictionaryIterator *received, void *context) {
    // incoming message received
-   APP_LOG(APP_LOG_LEVEL_DEBUG, "in_received_handler");
+   if (error_log){APP_LOG(APP_LOG_LEVEL_DEBUG, "in_received_handler");}
 
  }
 
@@ -178,7 +183,7 @@ void out_sent_handler(DictionaryIterator *sent, void *context) {
 
  void in_dropped_handler(AppMessageResult reason, void *context) {
    // incoming message dropped
-   APP_LOG(APP_LOG_LEVEL_DEBUG, "in_dropped_handlers");
+   if (error_log){APP_LOG(APP_LOG_LEVEL_DEBUG, "in_dropped_handlers");}
 
  }
 
@@ -313,8 +318,12 @@ static void init(void) {
     app_message_open(inbound_size, outbound_size);
 
     //Accelerometer
-    accel_data_service_subscribe(10, accel_data_handler);
-    accel_service_set_sampling_rate(ACCEL_SAMPLING_100HZ);
+    //accel_data_service_subscribe(1, accel_data_handler);
+    accel_data_service_subscribe(0, NULL);
+    accel_timer = app_timer_register(ACCEL_STEP_MS, accel_timer_callback, NULL);
+
+    accel_service_set_sampling_rate(ACCEL_SAMPLING_50HZ);
+
 
 }
 
@@ -329,8 +338,7 @@ static void deinit(void) {
 
 int main(void) {
     init();
-    send_message();
-    APP_LOG(APP_LOG_LEVEL_DEBUG, "Done initializing, pushed window: %p", window);
+    send_message(); if (error_log){APP_LOG(APP_LOG_LEVEL_DEBUG, "Done initializing, pushed window: %p", window);}
 
     app_event_loop();
     deinit();
