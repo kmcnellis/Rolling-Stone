@@ -1,8 +1,9 @@
 #include <pebble.h>
-#define error_log true
-#define unit_one true
+#define error_log false
+#define unit_one false
+#define margin 40
 
-#define ACCEL_RATIO 1
+#define ACCEL_RATIO 100
 #define ACCEL_STEP_MS 50
 #define MESS_STEP_MS 250
 
@@ -41,6 +42,12 @@ static bool local_keyboard = false;
 static int  local_action =0;
 static bool local_enable =false;
 
+static int  local_mod =0;
+static int  local_sel =0;
+
+static int count=0;
+
+
 int x_co = 0, y_co=0, z_co=0;
 
 #define X_KEY 0
@@ -64,6 +71,7 @@ enum Sync_Data {
 };
 
 //Accelerometer
+void send_message();
 static void set_ui(void);
 void accel_data_handler(AccelData *data, uint32_t num_samples) {
     uint32_t a=0;
@@ -108,7 +116,7 @@ static void accel_timer_callback(void *arg) {
         y_co=(accel.y);
         z_co=(accel.z);
         int x_=accel.x, y_=accel.y, z_=accel.z;
-         if (error_log){ APP_LOG(APP_LOG_LEVEL_DEBUG, "RT X: %d Y: %d Z: %d",x_,y_,z_);}
+        //  if (error_log){ APP_LOG(APP_LOG_LEVEL_DEBUG, "RT X: %d Y: %d Z: %d",x_,y_,z_);}
 
     }
 
@@ -118,9 +126,9 @@ static void accel_timer_callback(void *arg) {
 //Clicks
 
 static void select_click_handler(ClickRecognizerRef recognizer, void *context) {
-    DictionaryIterator *iter;
-    app_message_outbox_begin(&iter);
-    int val = 1;
+    // DictionaryIterator *iter;
+    // app_message_outbox_begin(&iter);
+    // int val = 1;
     switch (local_action){
         case 0: //mouse
         case 1: //car
@@ -140,17 +148,19 @@ static void select_click_handler(ClickRecognizerRef recognizer, void *context) {
             text_layer_set_text(text_layer_info, "Select");
             break;
     }
-    dict_write_int(iter, MOD_KEY, &val, sizeof(int), true);
-    dict_write_int(iter, ACTION_KEY, &local_action, sizeof(int), true);
+    // dict_write_int(iter, MOD_KEY, &val, sizeof(int), true);
+    // dict_write_int(iter, ACTION_KEY, &local_action, sizeof(int), true);
+    //
+    // app_message_outbox_send();
+    local_sel = 1;
 
-    app_message_outbox_send();
 
 }
 
 static void mod_click_handler(ClickRecognizerRef recognizer, void *context) {
-    DictionaryIterator *iter;
-    app_message_outbox_begin(&iter);
-    int val = 1;
+    // DictionaryIterator *iter;
+    // app_message_outbox_begin(&iter);
+
     switch (local_action){
         case 0: //mouse
             text_layer_set_text(text_layer_info, "Click");
@@ -162,10 +172,11 @@ static void mod_click_handler(ClickRecognizerRef recognizer, void *context) {
             text_layer_set_text(text_layer_info, "Next");
             break;
     }
-    dict_write_int(iter, MOD_KEY, &val, sizeof(int), true);
-    dict_write_int(iter, ACTION_KEY, &local_action, sizeof(int), true);
-
-    app_message_outbox_send();
+    // dict_write_int(iter, MOD_KEY, &val, sizeof(int), true);
+    // dict_write_int(iter, ACTION_KEY, &local_action, sizeof(int), true);
+    //
+    // app_message_outbox_send();
+    local_mod = 1;
 
 }
 
@@ -186,61 +197,74 @@ static void click_config_provider(void *context) {
 
 //Appmessage
 
-void send_message_co(){
+void send_message(){
+
     int x_=0, y_=0, z_=0;
     if(local_enable){
 
-        // snprintf(buffer, sizeof(buffer), "x: %i\ny: %i\nz:%i", x_co,y_co,z_co);
+        // snprintf(buffer, sizeof(buffer), "x: %i\ny: %i\nz: %i", x_co,y_co,z_co);
         DictionaryIterator *iter;
         app_message_outbox_begin(&iter);
         if (!unit_one){
-            int x_=(x_co/ACCEL_RATIO);
-            int y_=(y_co/ACCEL_RATIO);
-            int z_=(z_co/ACCEL_RATIO);
+             x_=(x_co/ACCEL_RATIO);
+             y_=(y_co/ACCEL_RATIO);
+             z_=(z_co/ACCEL_RATIO);
         }
         else{
-            if(x_co > 30) x_=1;
-            else if(x_co < 30) x_=-1;
+            if(x_co > margin) x_=1;
+            else if(x_co < -1*margin) x_=-1;
             else x_=0;
 
-            if(y_co > 30) y_=1;
-            else if(y_co < 30) y_=-1;
+            if(y_co > margin) y_=1;
+            else if(y_co < -1*margin) y_=-1;
             else y_=0;
 
-            if(z_co > 30) z_=1;
-            else if(z_co < 30) z_=-1;
+            if(z_co > margin) z_=1;
+            else if(z_co < -1*margin) z_=-1;
             else z_=0;
         }
 
-        snprintf(buffer, sizeof(buffer), "x: %i\ny: %i\nz:%i", x_,y_,z_);
-        if(error_log){APP_LOG(APP_LOG_LEVEL_DEBUG, "OT X: %d Y: %d Z: %d", x_, y_, z_);}
+        snprintf(buffer, sizeof(buffer), "x: %i\ny: %i\nz: %i", x_,y_,z_);
+if(error_log){APP_LOG(APP_LOG_LEVEL_DEBUG, "OT X: %d Y: %d Z: %d mod: %d sel: %d", x_, y_, z_, local_mod, local_sel);}
 
         dict_write_int(iter, X_KEY, &x_, sizeof(int), true);
         dict_write_int(iter, Y_KEY, &y_, sizeof(int), true);
         dict_write_int(iter, Z_KEY, &z_, sizeof(int), true);
         dict_write_int(iter, ACTION_KEY, &local_action, sizeof(int), true);
+        dict_write_int(iter, MOD_KEY, &local_mod, sizeof(int), true);
+        dict_write_int(iter, SELECT_KEY, &local_sel, sizeof(int), true);
+        local_mod=0;
+        local_sel=0;
         app_message_outbox_send();
         text_layer_set_text(text_layer, buffer);
     }
     else{
-        // snprintf(buffer, sizeof(buffer), "x: %i\ny: %i\nz:%i", x_co,y_co,z_co);
+        // snprintf(buffer, sizeof(buffer), "x: %i\ny: %i\nz: %i", x_co,y_co,z_co);
         DictionaryIterator *iter;
         app_message_outbox_begin(&iter);
         x_=0;
         y_=0;
         z_=0;
-
+        int val = 0;
         snprintf(buffer, sizeof(buffer), "x: 0\ny: 0\nz:0");
 
-        if(error_log){APP_LOG(APP_LOG_LEVEL_DEBUG, "OT X: %d Y: %d Z: %d", x_, y_, z_);}
+        if(error_log){APP_LOG(APP_LOG_LEVEL_DEBUG, "OT X: %d Y: %d Z: %d mod: %d sel: %d", x_, y_, z_, local_mod, local_sel);}
 
         dict_write_int(iter, X_KEY, &x_, sizeof(int), true);
         dict_write_int(iter, Y_KEY, &y_, sizeof(int), true);
         dict_write_int(iter, Z_KEY, &z_, sizeof(int), true);
         dict_write_int(iter, ACTION_KEY, &local_action, sizeof(int), true);
+        dict_write_int(iter, MOD_KEY, &local_mod, sizeof(int), true);
+        dict_write_int(iter, SELECT_KEY, &local_sel, sizeof(int), true);
+        local_mod=0;
+        local_sel=0;
         app_message_outbox_send();
+
         text_layer_set_text(text_layer, buffer);
     }
+//    text_layer_set_text(text_layer_info, "");
+
+
 }
 
 static void message_timer_callback(void *arg) {
@@ -248,7 +272,7 @@ static void message_timer_callback(void *arg) {
     if (error_log){ APP_LOG(APP_LOG_LEVEL_DEBUG, "message_timer_callback");}
 
     mess_timer=NULL;
-    send_message_co();
+    send_message();
 }
 
 void out_sent_handler(DictionaryIterator *sent, void *context) {
@@ -257,7 +281,7 @@ void out_sent_handler(DictionaryIterator *sent, void *context) {
     }
     mess_timer = app_timer_register(MESS_STEP_MS, message_timer_callback, NULL);
     text_layer_set_text(text_layer_updated, "Updated!"); if (error_log){APP_LOG(APP_LOG_LEVEL_DEBUG, "out_sent_handler");}
-    send_message_co();
+    send_message();
  }
 
 
@@ -267,7 +291,7 @@ void out_sent_handler(DictionaryIterator *sent, void *context) {
     }
     text_layer_set_text(text_layer_updated, "Failed :(");
     if (error_log){ APP_LOG(APP_LOG_LEVEL_DEBUG, "out_failed_handler");}
-    send_message_co();
+    send_message();
 
  }
 
@@ -492,7 +516,8 @@ static void deinit(void) {
 
 int main(void) {
     init();
-    send_message_co(); if (error_log){APP_LOG(APP_LOG_LEVEL_DEBUG, "Done initializing, pushed window: %p", window);}
+    send_message();
+     if (error_log){APP_LOG(APP_LOG_LEVEL_DEBUG, "Done initializing, pushed window: %p", window);}
     set_ui();
     app_event_loop();
     deinit();
