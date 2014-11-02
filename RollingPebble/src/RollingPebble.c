@@ -1,5 +1,6 @@
 #include <pebble.h>
 #define error_log true
+#define unit_one true
 
 #define ACCEL_RATIO 1
 #define ACCEL_STEP_MS 50
@@ -71,14 +72,17 @@ void accel_data_handler(AccelData *data, uint32_t num_samples) {
     for (a =0; a<num_samples; a++){
         if (data[a].did_vibrate==false){
             num++;
-            x_co+=(data[a].x);
-            x_co=x_co/2;
-            y_co+=(data[a].y);
-            y_co=x_co/2;
-            z_co+=(data[a].z);
-            z_co=z_co/2;
+            // x_co+=(data[a].x);
+            // x_co=x_co/2;
+            // y_co+=(data[a].y);
+            // y_co=x_co/2;
+            // z_co+=(data[a].z);
+            // z_co=z_co/2;
+            x_co=(data[a].x);
+            y_co=(data[a].y);
+            z_co=(data[a].z);
             int x_=data[a].x, y_=data[a].y, z_=data[a].z;
-             if (error_log){ APP_LOG(APP_LOG_LEVEL_DEBUG, "RR X: %d Y: %d Z: %d",x_,y_,z_);}
+             if (error_log){ APP_LOG(APP_LOG_LEVEL_DEBUG, "RR X: %d Y: %d Z: %d",x_co,x_co,x_co);}
 
         }
     }
@@ -94,12 +98,15 @@ static void accel_timer_callback(void *arg) {
 
     if (accel.did_vibrate==false){
         num++;
-        x_co+=(accel.x);
-        x_co=x_co/2;
-        y_co+=(accel.y);
-        y_co=x_co/2;
-        z_co+=(accel.z);
-        z_co=z_co/2;
+        // x_co+=(accel.x);
+        // x_co=x_co/2;
+        // y_co+=(accel.y);
+        // y_co=x_co/2;
+        // z_co+=(accel.z);
+        // z_co=z_co/2;
+        x_co=(accel.x);
+        y_co=(accel.y);
+        z_co=(accel.z);
         int x_=accel.x, y_=accel.y, z_=accel.z;
          if (error_log){ APP_LOG(APP_LOG_LEVEL_DEBUG, "RT X: %d Y: %d Z: %d",x_,y_,z_);}
 
@@ -180,13 +187,50 @@ static void click_config_provider(void *context) {
 //Appmessage
 
 void send_message_co(){
+    int x_=0, y_=0, z_=0;
     if(local_enable){
-        snprintf(buffer, sizeof(buffer), "x: %i\ny: %i\nz:%i", x_co,y_co,z_co);
+
+        // snprintf(buffer, sizeof(buffer), "x: %i\ny: %i\nz:%i", x_co,y_co,z_co);
         DictionaryIterator *iter;
         app_message_outbox_begin(&iter);
-        int x_=(x_co/ACCEL_RATIO);
-        int y_=(y_co/ACCEL_RATIO);
-        int z_=(z_co/ACCEL_RATIO);
+        if (!unit_one){
+            int x_=(x_co/ACCEL_RATIO);
+            int y_=(y_co/ACCEL_RATIO);
+            int z_=(z_co/ACCEL_RATIO);
+        }
+        else{
+            if(x_co > 30) x_=1;
+            else if(x_co < 30) x_=-1;
+            else x_=0;
+
+            if(y_co > 30) y_=1;
+            else if(y_co < 30) y_=-1;
+            else y_=0;
+
+            if(z_co > 30) z_=1;
+            else if(z_co < 30) z_=-1;
+            else z_=0;
+        }
+
+        snprintf(buffer, sizeof(buffer), "x: %i\ny: %i\nz:%i", x_,y_,z_);
+        if(error_log){APP_LOG(APP_LOG_LEVEL_DEBUG, "OT X: %d Y: %d Z: %d", x_, y_, z_);}
+
+        dict_write_int(iter, X_KEY, &x_, sizeof(int), true);
+        dict_write_int(iter, Y_KEY, &y_, sizeof(int), true);
+        dict_write_int(iter, Z_KEY, &z_, sizeof(int), true);
+        dict_write_int(iter, ACTION_KEY, &local_action, sizeof(int), true);
+        app_message_outbox_send();
+        text_layer_set_text(text_layer, buffer);
+    }
+    else{
+        // snprintf(buffer, sizeof(buffer), "x: %i\ny: %i\nz:%i", x_co,y_co,z_co);
+        DictionaryIterator *iter;
+        app_message_outbox_begin(&iter);
+        x_=0;
+        y_=0;
+        z_=0;
+
+        snprintf(buffer, sizeof(buffer), "x: 0\ny: 0\nz:0");
 
         if(error_log){APP_LOG(APP_LOG_LEVEL_DEBUG, "OT X: %d Y: %d Z: %d", x_, y_, z_);}
 
