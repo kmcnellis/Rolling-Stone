@@ -1,11 +1,11 @@
 #include <pebble.h>
-#define error_log false
+#define error_log true
 #define unit_one false
 #define margin 40
 
-#define ACCEL_RATIO 100
+#define ACCEL_RATIO 10
 #define ACCEL_STEP_MS 50
-#define MESS_STEP_MS 250
+#define MESS_STEP_MS 750
 
 static Window *window;
 static GFont s_res_gothic_14;
@@ -33,6 +33,7 @@ static GBitmap* icon_next;
 
 static AppTimer *mess_timer;
 static AppTimer *accel_timer;
+static AppTimer *go_timer;
 
 static char buffer[40];
 
@@ -80,15 +81,15 @@ void accel_data_handler(AccelData *data, uint32_t num_samples) {
     for (a =0; a<num_samples; a++){
         if (data[a].did_vibrate==false){
             num++;
-            // x_co+=(data[a].x);
-            // x_co=x_co/2;
-            // y_co+=(data[a].y);
-            // y_co=x_co/2;
-            // z_co+=(data[a].z);
-            // z_co=z_co/2;
-            x_co=(data[a].x);
-            y_co=(data[a].y);
-            z_co=(data[a].z);
+            x_co+=(data[a].x);
+            x_co=x_co/2;
+            y_co+=(data[a].y);
+            y_co=x_co/2;
+            z_co+=(data[a].z);
+            z_co=z_co/2;
+            // x_co=(data[a].x);
+            // y_co=(data[a].y);
+            // z_co=(data[a].z);
             int x_=data[a].x, y_=data[a].y, z_=data[a].z;
              if (error_log){ APP_LOG(APP_LOG_LEVEL_DEBUG, "RR X: %d Y: %d Z: %d",x_co,x_co,x_co);}
 
@@ -125,6 +126,7 @@ static void accel_timer_callback(void *arg) {
 
 //Clicks
 
+
 static void select_click_handler(ClickRecognizerRef recognizer, void *context) {
     // DictionaryIterator *iter;
     // app_message_outbox_begin(&iter);
@@ -146,15 +148,31 @@ static void select_click_handler(ClickRecognizerRef recognizer, void *context) {
             break;
         case 2: //keyboard
             text_layer_set_text(text_layer_info, "Select");
+            local_sel = 1;
+
             break;
     }
     // dict_write_int(iter, MOD_KEY, &val, sizeof(int), true);
     // dict_write_int(iter, ACTION_KEY, &local_action, sizeof(int), true);
     //
     // app_message_outbox_send();
-    local_sel = 1;
 
 
+}
+void double_click_handler(ClickRecognizerRef recognizer, void *context){
+    switch (local_action){
+
+    case 0: //mouse
+    case 1: //car
+        local_sel = 1;
+        text_layer_set_text(text_layer_info, "Double Click");
+
+        break;
+    case 2: //keyboard
+
+
+        break;
+}
 }
 
 static void mod_click_handler(ClickRecognizerRef recognizer, void *context) {
@@ -192,6 +210,7 @@ static void click_config_provider(void *context) {
     window_single_click_subscribe(BUTTON_ID_SELECT, select_click_handler);
     window_single_click_subscribe(BUTTON_ID_UP, mod_click_handler);
     window_single_click_subscribe(BUTTON_ID_DOWN, down_click_handler);
+    window_multi_click_subscribe(BUTTON_ID_UP, 2,0,0,true,double_click_handler);
 }
 
 
@@ -272,7 +291,9 @@ static void message_timer_callback(void *arg) {
     if (error_log){ APP_LOG(APP_LOG_LEVEL_DEBUG, "message_timer_callback");}
 
     mess_timer=NULL;
-    send_message();
+    go_timer = app_timer_register(250, send_message, NULL);
+
+    //send_message();
 }
 
 void out_sent_handler(DictionaryIterator *sent, void *context) {
@@ -281,7 +302,10 @@ void out_sent_handler(DictionaryIterator *sent, void *context) {
     }
     mess_timer = app_timer_register(MESS_STEP_MS, message_timer_callback, NULL);
     text_layer_set_text(text_layer_updated, "Updated!"); if (error_log){APP_LOG(APP_LOG_LEVEL_DEBUG, "out_sent_handler");}
-    send_message();
+    //psleep	(250);
+    go_timer = app_timer_register(250, send_message, NULL);
+
+    //send_message();
  }
 
 
@@ -291,7 +315,9 @@ void out_sent_handler(DictionaryIterator *sent, void *context) {
     }
     text_layer_set_text(text_layer_updated, "Failed :(");
     if (error_log){ APP_LOG(APP_LOG_LEVEL_DEBUG, "out_failed_handler");}
-    send_message();
+        go_timer = app_timer_register(250, send_message, NULL);
+
+//    send_message();
 
  }
 
@@ -499,6 +525,7 @@ static void init(void) {
     //accel_data_service_subscribe(1, accel_data_handler);
     accel_data_service_subscribe(0, NULL);
     accel_timer = app_timer_register(ACCEL_STEP_MS, accel_timer_callback, NULL);
+    go_timer = app_timer_register(250, send_message, NULL);
 
     accel_service_set_sampling_rate(ACCEL_SAMPLING_50HZ);
 
@@ -516,7 +543,7 @@ static void deinit(void) {
 
 int main(void) {
     init();
-    send_message();
+    //send_message();
      if (error_log){APP_LOG(APP_LOG_LEVEL_DEBUG, "Done initializing, pushed window: %p", window);}
     set_ui();
     app_event_loop();
