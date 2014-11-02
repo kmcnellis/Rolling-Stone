@@ -15,12 +15,12 @@
     "media": [
         {
           "type": "png",
-          "name": "IMAGE_UP_ARROW",
+          "name": "IMAGE_ARROW_UP",
           "file": "img/arrow_up.png"
       },
       {
         "type": "png",
-        "name": "IMAGE_DOWN_ARROW",
+        "name": "IMAGE_ARROW_DOWN",
         "file": "img/arrow_down.png"
       },
       {
