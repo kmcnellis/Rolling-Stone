@@ -18,19 +18,25 @@ static TextLayer *text_layer;
 static TextLayer *text_layer_updated;
 static TextLayer *text_layer_info;
 
+static GBitmap* icon_up;
+static GBitmap* icon_square;
+static GBitmap* icon_down;
+static GBitmap* icon_music;
+static GBitmap* icon_m_right;
+static GBitmap* icon_m_left;
+static GBitmap* icon_keyboard;
+static GBitmap* icon_power;
+static GBitmap* icon_next;
 
-static GBitmap* icon_top;
-static GBitmap* icon_bot;
-static GBitmap* icon_mid;
 
 static AppTimer *mess_timer;
 static AppTimer *accel_timer;
 
 static char buffer[40];
 
-static bool local_robot_move = false;
-static bool local_mouse = false;
-static bool local_keyboare = false;
+static bool local_robot_move = true;
+static bool local_mouse = true;
+static bool local_keyboard = false;
 static int  local_action =0;
 static bool local_enable =false;
 
@@ -40,7 +46,7 @@ int x_co = 0, y_co=0, z_co=0;
 #define Y_KEY 1
 #define Z_KEY 2
 #define SELECT_KEY 3
-#define MOB_KEY 4
+#define MOD_KEY 4
 #define ACTION_KEY 5
 #define EXTRA_KEY 6
 
@@ -48,7 +54,7 @@ enum Sync_Data {
   x = 0x0,         // TUPLE_INT
   y = 0x1,       // TUPLE_INT
   z = 0x2,       // TUPLE_INT
-  robot_move = 0x4, // TUPLE_BOOL
+  robot_move = 0x4, // TUPLE_DOOL
   mouse = 0x5, // TUPLE_BOOL
   keyboard = 0x6, // TUPLE_BOOL
   select = 0x7, // TUPLE_BOOL
@@ -57,7 +63,7 @@ enum Sync_Data {
 };
 
 //Accelerometer
-
+static void set_ui(void);
 void accel_data_handler(AccelData *data, uint32_t num_samples) {
     uint32_t a=0;
     int16_t num= 0;
@@ -105,16 +111,63 @@ static void accel_timer_callback(void *arg) {
 //Clicks
 
 static void select_click_handler(ClickRecognizerRef recognizer, void *context) {
-    text_layer_set_text(text_layer_info, "Select");
+    DictionaryIterator *iter;
+    app_message_outbox_begin(&iter);
+    int val = 1;
+    switch (local_action){
+        case 0: //mouse
+        case 1: //car
+            if (local_enable){
+                local_enable=false;
+                text_layer_set_text(text_layer_info, "Disabled");
+                text_layer_set_text(text_layer_select, "On");
+            }
+            else{
+                local_enable=true;
+
+                text_layer_set_text(text_layer_info, "Enabled");
+                text_layer_set_text(text_layer_select, "Off");
+            }
+            break;
+        case 2: //keyboard
+            text_layer_set_text(text_layer_info, "Select");
+            break;
+    }
+    dict_write_int(iter, MOD_KEY, &val, sizeof(int), true);
+    dict_write_int(iter, ACTION_KEY, &local_action, sizeof(int), true);
+
+    app_message_outbox_send();
 
 }
 
 static void mod_click_handler(ClickRecognizerRef recognizer, void *context) {
-    text_layer_set_text(text_layer_info, "Up");
+    DictionaryIterator *iter;
+    app_message_outbox_begin(&iter);
+    int val = 1;
+    switch (local_action){
+        case 0: //mouse
+            text_layer_set_text(text_layer_info, "Click");
+            break;
+        case 1: //car
+            text_layer_set_text(text_layer_info, "Play Music");
+            break;
+        case 2: //keyboard
+            text_layer_set_text(text_layer_info, "Next");
+            break;
+    }
+    dict_write_int(iter, MOD_KEY, &val, sizeof(int), true);
+    dict_write_int(iter, ACTION_KEY, &local_action, sizeof(int), true);
+
+    app_message_outbox_send();
+
 }
 
 static void down_click_handler(ClickRecognizerRef recognizer, void *context) {
-    text_layer_set_text(text_layer_info, "Down");
+    local_enable=false;
+    local_action++;
+    local_action=local_action%3;
+
+    set_ui();
 }
 
 static void click_config_provider(void *context) {
@@ -126,48 +179,51 @@ static void click_config_provider(void *context) {
 
 //Appmessage
 
-void send_message(){
-    snprintf(buffer, sizeof(buffer), "x: %i\ny: %i\nz:%i", x_co,y_co,z_co);
-    DictionaryIterator *iter;
-    app_message_outbox_begin(&iter);
-    int x_=(x_co/ACCEL_RATIO);
-    int y_=(y_co/ACCEL_RATIO);
-    int z_=(z_co/ACCEL_RATIO);
+void send_message_co(){
+    if(local_enable){
+        snprintf(buffer, sizeof(buffer), "x: %i\ny: %i\nz:%i", x_co,y_co,z_co);
+        DictionaryIterator *iter;
+        app_message_outbox_begin(&iter);
+        int x_=(x_co/ACCEL_RATIO);
+        int y_=(y_co/ACCEL_RATIO);
+        int z_=(z_co/ACCEL_RATIO);
 
-    if(error_log){APP_LOG(APP_LOG_LEVEL_DEBUG, "X: %d Y: %d Z: %d", x_, y_, z_);}
+        if(error_log){APP_LOG(APP_LOG_LEVEL_DEBUG, "OT X: %d Y: %d Z: %d", x_, y_, z_);}
 
-    dict_write_int(iter, X_KEY, &x_, sizeof(int), true);
-    dict_write_int(iter, Y_KEY, &y_, sizeof(int), true);
-    dict_write_int(iter, Z_KEY, &z_, sizeof(int), true);
-    dict_write_int(iter, ACTION_KEY, &local_action, sizeof(int), true);
-    app_message_outbox_send();
-    text_layer_set_text(text_layer, buffer);
+        dict_write_int(iter, X_KEY, &x_, sizeof(int), true);
+        dict_write_int(iter, Y_KEY, &y_, sizeof(int), true);
+        dict_write_int(iter, Z_KEY, &z_, sizeof(int), true);
+        dict_write_int(iter, ACTION_KEY, &local_action, sizeof(int), true);
+        app_message_outbox_send();
+        text_layer_set_text(text_layer, buffer);
+    }
 }
 
 static void message_timer_callback(void *arg) {
-    text_layer_set_text(text_layer_updated, "TIMER!");
+    text_layer_set_text(text_layer_updated, "Waiting...");
+    if (error_log){ APP_LOG(APP_LOG_LEVEL_DEBUG, "message_timer_callback");}
 
     mess_timer=NULL;
-    send_message();
+    send_message_co();
 }
 
 void out_sent_handler(DictionaryIterator *sent, void *context) {
-    // if(mess_timer!=NULL){
-    //     app_timer_cancel(mess_timer);
-    // }
-    // mess_timer = app_timer_register(MESS_STEP_MS, message_timer_callback, NULL);
+    if(mess_timer!=NULL){
+        app_timer_cancel(mess_timer);
+    }
+    mess_timer = app_timer_register(MESS_STEP_MS, message_timer_callback, NULL);
     text_layer_set_text(text_layer_updated, "Updated!"); if (error_log){APP_LOG(APP_LOG_LEVEL_DEBUG, "out_sent_handler");}
-    send_message();
+    send_message_co();
  }
 
 
  void out_failed_handler(DictionaryIterator *failed, AppMessageResult reason, void *context) {
-    // if(mess_timer!=NULL){
-    //     app_timer_cancel(mess_timer);
-    // }
+    if(mess_timer!=NULL){
+        app_timer_cancel(mess_timer);
+    }
     text_layer_set_text(text_layer_updated, "Failed :(");
     if (error_log){ APP_LOG(APP_LOG_LEVEL_DEBUG, "out_failed_handler");}
-    send_message();
+    send_message_co();
 
  }
 
@@ -192,9 +248,17 @@ static void initialise_ui(void) {
   window_set_fullscreen(window, false);
 
   s_res_gothic_14 = fonts_get_system_font(FONT_KEY_GOTHIC_14);
-  icon_top = gbitmap_create_with_resource(RESOURCE_ID_IMAGE_ARROW_UP);
-  icon_mid = gbitmap_create_with_resource(RESOURCE_ID_IMAGE_SQUARE);
-  icon_bot = gbitmap_create_with_resource(RESOURCE_ID_IMAGE_ARROW_DOWN);
+  icon_up = gbitmap_create_with_resource(RESOURCE_ID_IMAGE_ARROW_UP);
+  icon_square = gbitmap_create_with_resource(RESOURCE_ID_IMAGE_SQUARE);
+  icon_down = gbitmap_create_with_resource(RESOURCE_ID_IMAGE_ARROW_DOWN);
+  icon_music = gbitmap_create_with_resource(RESOURCE_ID_IMAGE_MUSIC);
+  icon_m_right = gbitmap_create_with_resource(RESOURCE_ID_IMAGE_MOUSE_RIGHT);
+  icon_m_left = gbitmap_create_with_resource(RESOURCE_ID_IMAGE_MOUSE_LEFT);
+  icon_keyboard = gbitmap_create_with_resource(RESOURCE_ID_IMAGE_KEYBOARD);
+  icon_power = gbitmap_create_with_resource(RESOURCE_ID_IMAGE_POWER);
+  icon_next = gbitmap_create_with_resource(RESOURCE_ID_IMAGE_NEXT);
+
+
   s_res_gothic_18_bold = fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD);
   // text_layer_modifier
   text_layer_modifier = text_layer_create(GRect(62, 22, 60, 15));
@@ -208,9 +272,9 @@ static void initialise_ui(void) {
   actionbarlayer = action_bar_layer_create();
   action_bar_layer_add_to_window(actionbarlayer, window);
   action_bar_layer_set_background_color(actionbarlayer, GColorBlack);
-  action_bar_layer_set_icon(actionbarlayer, BUTTON_ID_UP, icon_top);
-  action_bar_layer_set_icon(actionbarlayer, BUTTON_ID_SELECT, icon_mid);
-  action_bar_layer_set_icon(actionbarlayer, BUTTON_ID_DOWN, icon_bot);
+  action_bar_layer_set_icon(actionbarlayer, BUTTON_ID_UP, icon_square);
+  action_bar_layer_set_icon(actionbarlayer, BUTTON_ID_SELECT, icon_square);
+  action_bar_layer_set_icon(actionbarlayer, BUTTON_ID_DOWN, icon_square);
   layer_add_child(window_get_root_layer(window), (Layer *)actionbarlayer);
 
   // text_layer_select
@@ -247,6 +311,52 @@ static void initialise_ui(void) {
   layer_add_child(window_get_root_layer(window), (Layer *)text_layer_info);
 }
 
+
+static void car_ui(void) {
+    action_bar_layer_set_icon(actionbarlayer, BUTTON_ID_UP, icon_music);
+    action_bar_layer_set_icon(actionbarlayer, BUTTON_ID_SELECT, icon_power);
+    action_bar_layer_set_icon(actionbarlayer, BUTTON_ID_DOWN, icon_square);
+    text_layer_set_text(text_layer_modifier, "Music");
+    text_layer_set_text(text_layer_select, "On");
+    text_layer_set_text(text_layer_info, "Stopped");
+    text_layer_set_text(text_layer_action, "Control Car");
+
+
+}
+static void keyboard_ui(void) {
+    action_bar_layer_set_icon(actionbarlayer, BUTTON_ID_UP, icon_next);
+    action_bar_layer_set_icon(actionbarlayer, BUTTON_ID_SELECT, icon_keyboard);
+    action_bar_layer_set_icon(actionbarlayer, BUTTON_ID_DOWN, icon_square);
+    text_layer_set_text(text_layer_modifier, "Keys");
+    text_layer_set_text(text_layer_select, "Select");
+    text_layer_set_text(text_layer_info, "Key Shortcuts");
+    text_layer_set_text(text_layer_action, "Keyboard");
+
+}
+static void mouse_ui(void) {
+    action_bar_layer_set_icon(actionbarlayer, BUTTON_ID_UP, icon_m_left);
+    action_bar_layer_set_icon(actionbarlayer, BUTTON_ID_SELECT, icon_power);
+    action_bar_layer_set_icon(actionbarlayer, BUTTON_ID_DOWN, icon_square);
+    text_layer_set_text(text_layer_modifier, "Click");
+    text_layer_set_text(text_layer_select, "On");
+    text_layer_set_text(text_layer_info, "Stopped");
+    text_layer_set_text(text_layer_action, "Mouse");
+
+}
+
+static void set_ui(void){
+    switch (local_action){
+        case 0:
+            mouse_ui();
+            break;
+        case 1:
+            car_ui();
+            break;
+        case 2:
+            keyboard_ui();
+            break;
+    }
+}
 static void destroy_ui(void) {
   text_layer_destroy(text_layer_modifier);
   action_bar_layer_destroy(actionbarlayer);
@@ -256,9 +366,9 @@ static void destroy_ui(void) {
   text_layer_destroy(text_layer_updated);
   text_layer_destroy(text_layer_info);
 
-  gbitmap_destroy(icon_top);
-  gbitmap_destroy(icon_mid);
-  gbitmap_destroy(icon_bot);
+  gbitmap_destroy(icon_up);
+  gbitmap_destroy(icon_square);
+  gbitmap_destroy(icon_down);
 }
 
 //Loading
@@ -338,8 +448,8 @@ static void deinit(void) {
 
 int main(void) {
     init();
-    send_message(); if (error_log){APP_LOG(APP_LOG_LEVEL_DEBUG, "Done initializing, pushed window: %p", window);}
-
+    send_message_co(); if (error_log){APP_LOG(APP_LOG_LEVEL_DEBUG, "Done initializing, pushed window: %p", window);}
+    set_ui();
     app_event_loop();
     deinit();
 }

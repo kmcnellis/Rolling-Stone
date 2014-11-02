@@ -5,6 +5,7 @@
   "companyName": "MakeAwesomeHappen",
   "versionCode": 1,
   "versionLabel": "1.0",
+  "Credits": "Icons from http://www.flaticon.com",
   "watchapp": {
     "watchface": false
   },
@@ -47,6 +48,16 @@
             "type": "png",
             "name": "IMAGE_KEYBOARD",
             "file": "img/keyboard.png"
+        },
+        {
+            "type": "png",
+            "name": "IMAGE_POWER",
+            "file": "img/on.png"
+        },
+        {
+            "type": "png",
+            "name": "IMAGE_NEXT",
+            "file": "img/next.png"
         }
       ]
   }
