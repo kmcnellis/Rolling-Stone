@@ -1,3 +1,5 @@
+PHONE=172.26.3.33
+
 .PHONY: build install
 
 all: build install
@@ -8,9 +10,9 @@ build:
 	pebble build
 
 install:
-	pebble install --phone 172.26.3.33
+	pebble install --phone $(PHONE)
 
 debug: all logs
-	
+
 logs:
-	pebble logs --phone 172.26.3.33
+	pebble logs --phone $(PHONE)

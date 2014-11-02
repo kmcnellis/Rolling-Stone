@@ -29,6 +29,15 @@ static bool local_robot_move = false;
 static bool local_mouse = false;
 static bool local_keyboare = false;
 static int  local_function =false;
+
+#define x_key 0
+#define y_key 1
+#define z_key 2
+#define select_key 3
+#define mod_key 4
+#define function_key 5
+#define error_key 6
+
 enum Sync_Data {
   x = 0x0,         // TUPLE_INT
   y = 0x1,       // TUPLE_INT
@@ -289,8 +298,8 @@ static void init(void) {
     app_message_open(inbound_size, outbound_size);
 
     //Accelerometer
-    accel_data_service_subscribe(40, accel_data_handler);
-    accel_service_set_sampling_rate(ACCEL_SAMPLING_100HZ);
+    accel_data_service_subscribe(25, accel_data_handler);
+    accel_service_set_sampling_rate(ACCEL_SAMPLING_50HZ);
 
 }
 
